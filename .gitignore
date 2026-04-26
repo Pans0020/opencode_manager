@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Frontend build output
+frontend/dist/
+
+# Desktop/package output
+dist/
+
+# Python/PyInstaller output
+backend/build/
+backend/dist/
+backend/*.spec
+__pycache__/
+*.py[cod]
+
+# Test/tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vite/
+
+# Logs
+*.log
+
+# Local environment and OS files
+.env
+.env.*
+Thumbs.db
+Desktop.ini

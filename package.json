@@ -1,0 +1,53 @@
+{
+  "name": "agent-model-manager",
+  "private": true,
+  "version": "0.1.0",
+  "main": "electron/main.mjs",
+  "workspaces": ["frontend"],
+  "scripts": {
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build:frontend": "npm --workspace frontend run build",
+    "test:frontend": "npm --workspace frontend run test",
+    "test:electron": "node --test electron/tests/runtime.test.mjs electron/tests/packaging.test.mjs",
+    "backend:test": "python -m pytest backend/tests",
+    "backend:dev": "python backend\\run_backend.py --reload --port 8765",
+    "build:backend": "python -m PyInstaller --noconfirm --clean --onefile --name agent-model-manager-backend --distpath backend\\dist --workpath backend\\build\\pyinstaller --specpath backend backend\\run_backend.py",
+    "electron:dev": "cross-env ELECTRON_DEV=1 ELECTRON_RENDERER_URL=http://localhost:5173 electron .",
+    "build:desktop": "electron-builder --win",
+    "dist": "npm run build:frontend && npm run build:backend && npm run build:desktop",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run dev:frontend\" \"npm run electron:dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "cross-env": "^7.0.3",
+    "electron": "^35.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.pans0020.agent-model-manager",
+    "productName": "Agent Model Manager",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "frontend/dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/agent-model-manager-backend.exe",
+        "to": "backend/agent-model-manager-backend.exe"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}
