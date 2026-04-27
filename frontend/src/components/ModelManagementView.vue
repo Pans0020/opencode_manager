@@ -5,7 +5,12 @@ import { ElMessage } from 'element-plus'
 
 import { useConfigStore } from '@/store/config'
 import type { TargetInfo } from '@/types'
-import { getModelOptions, getStrengthOptions } from '@/utils/config'
+import {
+  getBatchProviderTargetIds,
+  getModelOptions,
+  getStrengthOptions,
+  getValidProviderIdForSource,
+} from '@/utils/config'
 import { getDefaultSourceTab, getVisibleTargetsBySource, type SourceTab } from '@/utils/source-tabs'
 import { groupTargetsByTab } from '@/utils/target-groups'
 
@@ -37,13 +42,13 @@ function targetProviders(target: TargetInfo) {
 function handleBatchApply() {
   if (!batchProviderId.value) return
 
-  const omoTargetIds = targets.value.filter((t) => t.source === 'omo').map((t) => t.id)
+  const targetIds = getBatchProviderTargetIds(targets.value, activeSource.value)
 
-  store.batchUpdateDrafts(omoTargetIds, {
+  store.batchUpdateDrafts(targetIds, {
     provider: batchProviderId.value,
   })
 
-  ElMessage.success(`已将所有 OMO Agent 供应商切换为 ${batchProviderId.value}`)
+  ElMessage.success(`已将 ${sourceMeta[activeSource.value].title} 供应商切换为 ${batchProviderId.value}`)
 }
 
 const sourceMeta: Record<SourceTab, { title: string; tone: string; description: string }> = {
@@ -79,6 +84,10 @@ function switchSource(next: SourceTab) {
   activeSource.value = next
   filters.value.source = next
 }
+
+watch(activeProviders, (providers) => {
+  batchProviderId.value = getValidProviderIdForSource(batchProviderId.value, providers)
+})
 
 async function handlePreview() {
   await store.previewDrafts()
@@ -140,7 +149,6 @@ onMounted(async () => {
       </div>
 
       <div
-        v-if="activeSource === 'omo'"
         class="batch-bar"
         style="
           margin-bottom: 24px;
@@ -153,15 +161,15 @@ onMounted(async () => {
           border-radius: 12px;
         "
       >
-        <span style="font-size: 13px; color: var(--text-dim); font-weight: 500">一键设置 OMO 供应商:</span>
+        <span style="font-size: 13px; color: var(--text-dim); font-weight: 500">一键设置 {{ sourceMeta[activeSource].title }} 供应商:</span>
         <el-select v-model="batchProviderId" placeholder="选择供应商" style="width: 150px">
           <el-option v-for="p in activeProviders" :key="p.id" :label="p.label" :value="p.id" />
         </el-select>
         <el-button type="primary" @click="handleBatchApply" :disabled="!batchProviderId">
-          应用到所有 OMO Agent
+          {{ activeSource === 'opencode' ? '应用到当前可见 OpenCode' : '应用到所有 OMO Agent' }}
         </el-button>
         <div style="font-size: 12px; color: var(--text-dim); margin-left: auto">
-          此操作将更新所有 OMO Agent (包括 Atlas/Sisyphus 等)
+          {{ activeSource === 'opencode' ? '此操作只更新当前可见的 OpenCode 项' : '此操作将更新所有 OMO Agent (包括 Atlas/Sisyphus 等)' }}
         </div>
       </div>
 

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ProviderInfo, TargetDraft, TargetInfo } from '@/types'
-import { buildDraftChanges, getModelOptions, getProvidersForSource, getStrengthOptions, mergeDraft } from '@/utils/config'
+import {
+  buildDraftChanges,
+  getBatchProviderTargetIds,
+  getModelOptions,
+  getProvidersForSource,
+  getStrengthOptions,
+  getValidProviderIdForSource,
+  mergeDraft,
+} from '@/utils/config'
 
 const providers: ProviderInfo[] = [
   {
@@ -58,6 +66,39 @@ const targets: TargetInfo[] = [
     currentStrength: 'high',
     availableProviders: ['OpenAI', 'Anthropic'],
   },
+  {
+    id: 'opencode:default:model',
+    source: 'opencode',
+    kind: 'default',
+    name: 'Default Model',
+    visible: false,
+    currentProvider: 'OpenAI',
+    currentModel: 'gpt-5.4',
+    currentStrength: 'medium',
+    availableProviders: ['OpenAI', 'Anthropic'],
+  },
+  {
+    id: 'omo:agent:atlas',
+    source: 'omo',
+    kind: 'agent',
+    name: 'atlas',
+    visible: true,
+    currentProvider: 'OmoOnly',
+    currentModel: 'omo-model',
+    currentStrength: 'spark',
+    availableProviders: ['OmoOnly'],
+  },
+  {
+    id: 'omo:subagent:librarian',
+    source: 'omo',
+    kind: 'subagent',
+    name: 'librarian',
+    visible: false,
+    currentProvider: 'OmoOnly',
+    currentModel: 'omo-model',
+    currentStrength: 'spark',
+    availableProviders: ['OmoOnly'],
+  },
 ]
 
 describe('config utils', () => {
@@ -113,5 +154,24 @@ describe('config utils', () => {
         strength: 'high',
       },
     ])
+  })
+
+  it('selects only visible OpenCode targets for batch provider updates', () => {
+    expect(getBatchProviderTargetIds(targets, 'opencode')).toEqual([
+      'opencode:agent:build',
+    ])
+  })
+
+  it('keeps OMO batch provider updates source-wide', () => {
+    expect(getBatchProviderTargetIds(targets, 'omo')).toEqual([
+      'omo:agent:atlas',
+      'omo:subagent:librarian',
+    ])
+  })
+
+  it('clears selected provider when it is not valid for the active source', () => {
+    expect(getValidProviderIdForSource('OpenAI', providers)).toBe('OpenAI')
+    expect(getValidProviderIdForSource('OpenAI', omoProviders)).toBeNull()
+    expect(getValidProviderIdForSource(null, omoProviders)).toBeNull()
   })
 })

@@ -20,6 +20,24 @@ export function getStrengthOptions(
   return getModelOptions(providers, providerId).find((model) => model.id === modelId)?.strengthOptions ?? []
 }
 
+export function getBatchProviderTargetIds(targets: TargetInfo[], source: ConfigSource) {
+  return targets
+    .filter((target) => {
+      if (target.source !== source) {
+        return false
+      }
+      return source === 'opencode' ? target.visible !== false : true
+    })
+    .map((target) => target.id)
+}
+
+export function getValidProviderIdForSource(providerId: string | null, providers: ProviderInfo[]) {
+  if (!providerId) {
+    return null
+  }
+  return providers.some((provider) => provider.id === providerId) ? providerId : null
+}
+
 export function mergeDraft(
   current: TargetDraft,
   providers: ProviderInfo[],
