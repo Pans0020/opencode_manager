@@ -110,10 +110,53 @@ def test_apply_writes_backup_and_updates_only_target_fields(sample_workspace: di
 
     opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
     assert opencode_payload["agent"]["planner"]["model"] == "Anthropic/claude-sonnet-4"
-    assert opencode_payload["agent"]["planner"]["variant"] == "high"
+    assert "variant" not in opencode_payload["agent"]["planner"]
     assert opencode_payload["agent"]["general"]["model"] == "OpenAI/gpt-5.4-mini"
     assert len(result.backups) == 1
     assert Path(result.backups[0]).exists()
+
+
+def test_opencode_agent_strength_is_written_as_options_not_variant(sample_workspace: dict[str, Path]) -> None:
+    manager = make_manager(sample_workspace)
+
+    manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "low",
+            }
+        ]
+    )
+
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = opencode_payload["agent"]["planner"]
+    assert "variant" not in planner
+    assert planner["options"]["reasoningEffort"] == "low"
+    assert planner["reasoningEffort"] == "low"
+
+
+def test_opencode_default_model_apply_removes_legacy_root_variant(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["variant"] = "high"
+    sample_workspace["opencode_path"].write_text(json.dumps(opencode_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manager = make_manager(sample_workspace)
+
+    manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:default:model",
+                "provider": "Anthropic",
+                "model": "claude-sonnet-4",
+                "strength": "high",
+            }
+        ]
+    )
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    assert updated_payload["model"] == "Anthropic/claude-sonnet-4"
+    assert "variant" not in updated_payload
 
 
 def test_reload_fails_on_corrupt_json(sample_workspace: dict[str, Path]) -> None:
@@ -296,6 +339,12 @@ def test_split_agent_apply_writes_only_omo_opencode(split_workspace: dict[str, P
     manager = make_manager(split_workspace)
     oc_before = split_workspace["opencode_path"].read_text(encoding="utf-8")
     oh_my_before = split_workspace["omo_path"].read_text(encoding="utf-8")
+    omo_opencode_payload = json.loads(split_workspace["omo_opencode_path"].read_text(encoding="utf-8"))
+    omo_opencode_payload["agent"]["OmoTabOnly"]["variant"] = "deep"
+    split_workspace["omo_opencode_path"].write_text(
+        json.dumps(omo_opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     agents = manager.get_agent_settings().agents
     omo_agent = next(agent for agent in agents if agent.source == "omo" and agent.id == "OmoTabOnly")
@@ -306,5 +355,7 @@ def test_split_agent_apply_writes_only_omo_opencode(split_workspace: dict[str, P
     assert result.applied_files == [split_workspace["omo_opencode_path"].as_posix()]
     assert split_workspace["opencode_path"].read_text(encoding="utf-8") == oc_before
     assert split_workspace["omo_path"].read_text(encoding="utf-8") == oh_my_before
-    omo_opencode_payload = json.loads(split_workspace["omo_opencode_path"].read_text(encoding="utf-8"))
-    assert omo_opencode_payload["agent"]["OmoTabOnly"]["description"] == "Updated OMO tab"
+    updated_omo_opencode_payload = json.loads(split_workspace["omo_opencode_path"].read_text(encoding="utf-8"))
+    assert updated_omo_opencode_payload["agent"]["OmoTabOnly"]["description"] == "Updated OMO tab"
+    assert "variant" not in updated_omo_opencode_payload["agent"]["OmoTabOnly"]
+    assert updated_omo_opencode_payload["agent"]["OmoTabOnly"]["options"]["reasoningEffort"] == "high"

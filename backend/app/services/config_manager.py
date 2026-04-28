@@ -300,12 +300,14 @@ class ConfigManager:
                     node["prompt"] = agent.prompt
                 elif "prompt" in node:
                     del node["prompt"]
+                self._sanitize_opencode_agent_node(node, oc_payload)
                 agent_payload_oc[agent.id] = node
             else:
                 if agent.prompt is not None:
                     node["prompt"] = agent.prompt
                 elif "prompt" in node:
                     del node["prompt"]
+                self._sanitize_opencode_agent_node(node, omo_opencode_payload)
                 agent_payload_omo[agent.id] = node
             
         mutated_oc["agent"] = agent_payload_oc
@@ -688,15 +690,37 @@ class ConfigManager:
             field_name = segments[-1]
             self._record_update(payload, field_name, model_ref, diffs, "")
             if field_name == "model":
-                self._record_update(payload, "variant", change.strength, diffs, "")
+                self._record_update(payload, "variant", None, diffs, "")
         else:
             agent_name = segments[-1]
             agent_payload = payload.setdefault("agent", {}).setdefault(agent_name, {})
             prefix = "agent.{0}.".format(agent_name)
             self._record_update(agent_payload, "model", model_ref, diffs, prefix)
-            self._record_update(agent_payload, "variant", change.strength, diffs, prefix)
+            self._record_update(agent_payload, "variant", None, diffs, prefix)
+            variant_options = self._get_opencode_variant_options(
+                payload,
+                change.provider,
+                change.model,
+                change.strength,
+            )
+            if variant_options:
+                options_payload = agent_payload.setdefault("options", {})
+                for option_key, option_value in sorted(variant_options.items()):
+                    self._record_update(
+                        options_payload,
+                        option_key,
+                        copy.deepcopy(option_value),
+                        diffs,
+                        "{0}options.".format(prefix),
+                    )
             if "reasoningEffort" in agent_payload:
-                self._record_update(agent_payload, "reasoningEffort", change.strength, diffs, prefix)
+                self._record_update(
+                    agent_payload,
+                    "reasoningEffort",
+                    variant_options.get("reasoningEffort", change.strength),
+                    diffs,
+                    prefix,
+                )
 
     def _apply_omo_change(
         self,
@@ -739,6 +763,41 @@ class ConfigManager:
         else:
             node[key] = new_value
             diffs.append(DiffItem(path="{0}{1}".format(prefix, key).strip("."), oldValue=old_value, newValue=new_value))
+
+    def _sanitize_opencode_agent_node(self, node: Dict[str, Any], payload: Dict[str, Any]) -> None:
+        legacy_variant = node.pop("variant", None)
+        provider, model = self._split_model_ref(node.get("model"))
+        if not legacy_variant or not provider or not model:
+            return
+
+        variant_options = self._get_opencode_variant_options(payload, provider, model, legacy_variant)
+        if not variant_options:
+            return
+
+        options_payload = node.setdefault("options", {})
+        for option_key, option_value in variant_options.items():
+            options_payload[option_key] = copy.deepcopy(option_value)
+        if "reasoningEffort" in node and "reasoningEffort" in variant_options:
+            node["reasoningEffort"] = variant_options["reasoningEffort"]
+
+    def _get_opencode_variant_options(
+        self,
+        payload: Dict[str, Any],
+        provider: str,
+        model: str,
+        strength: Optional[str],
+    ) -> Dict[str, Any]:
+        if not strength:
+            return {}
+        variant_payload = (
+            payload.get("provider", {})
+            .get(provider, {})
+            .get("models", {})
+            .get(model, {})
+            .get("variants", {})
+            .get(strength, {})
+        )
+        return copy.deepcopy(variant_payload) if isinstance(variant_payload, dict) else {}
 
     def _validate_change(self, change: DraftChange, providers: List[ProviderInfo]) -> None:
         provider_map = {provider.id: provider for provider in providers}
