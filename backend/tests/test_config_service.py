@@ -137,6 +137,21 @@ def test_opencode_agent_strength_is_written_as_options_not_variant(sample_worksp
     assert planner["reasoningEffort"] == "low"
 
 
+def test_overview_reads_opencode_agent_strength_from_options(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = opencode_payload["agent"]["planner"]
+    planner.pop("variant", None)
+    planner.pop("reasoningEffort", None)
+    planner["options"] = {"reasoningEffort": "high"}
+    sample_workspace["opencode_path"].write_text(json.dumps(opencode_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manager = make_manager(sample_workspace)
+
+    overview = manager.get_overview()
+
+    target = next(target for target in overview.targets if target.id == "opencode:agent:planner")
+    assert target.current_strength == "high"
+
+
 def test_opencode_default_model_apply_removes_legacy_root_variant(sample_workspace: dict[str, Path]) -> None:
     opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
     opencode_payload["variant"] = "high"

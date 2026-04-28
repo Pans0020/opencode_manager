@@ -436,7 +436,7 @@ class ConfigManager:
                     name=agent_name,
                     currentProvider=provider_id,
                     currentModel=model_id,
-                    currentStrength=agent_payload.get("variant") or agent_payload.get("reasoningEffort"),
+                    currentStrength=self._get_opencode_agent_strength(agent_payload),
                     availableProviders=available_provider_ids,
                 )
             )
@@ -779,6 +779,11 @@ class ConfigManager:
             options_payload[option_key] = copy.deepcopy(option_value)
         if "reasoningEffort" in node and "reasoningEffort" in variant_options:
             node["reasoningEffort"] = variant_options["reasoningEffort"]
+
+    def _get_opencode_agent_strength(self, node: Dict[str, Any]) -> Optional[str]:
+        options = node.get("options", {})
+        option_reasoning = options.get("reasoningEffort") if isinstance(options, dict) else None
+        return node.get("variant") or node.get("reasoningEffort") or option_reasoning
 
     def _get_opencode_variant_options(
         self,
