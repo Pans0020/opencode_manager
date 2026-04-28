@@ -106,11 +106,13 @@ export interface ProviderSettingsResponse {
 }
 
 export interface ProviderVariantDraft {
+  clientKey: string
   id: string
   valueText: string
 }
 
 export interface ProviderModelDraft {
+  clientKey: string
   id: string
   name: string
   maxTokensText: string
@@ -121,6 +123,7 @@ export interface ProviderModelDraft {
 }
 
 export interface ProviderDraft {
+  clientKey: string
   id: string
   npm: string
   apiKey: string

@@ -48,6 +48,7 @@ OMO_SUBAGENT_AGENT_NAMES = {
     "multimodal-looker",
 }
 DEFAULT_SETTINGS_PAYLOAD = {"visibilityRules": [], "customTabs": []}
+OPENCODE_STRENGTH_OPTION_KEYS = {"reasoningEffort", "reasoningSummary", "textVerbosity"}
 
 
 class ConfigManager:
@@ -685,16 +686,15 @@ class ConfigManager:
         diffs: List[DiffItem],
     ) -> None:
         model_ref = "{0}/{1}".format(change.provider, change.model)
-        segments = target.id.split(":")
-        if target.kind == "default":
-            field_name = segments[-1]
+        _, kind, name = self._parse_target_id(target.id)
+        if kind == "default":
+            field_name = name
             self._record_update(payload, field_name, model_ref, diffs, "")
             if field_name == "model":
                 self._record_update(payload, "variant", None, diffs, "")
         else:
-            agent_name = segments[-1]
-            agent_payload = payload.setdefault("agent", {}).setdefault(agent_name, {})
-            prefix = "agent.{0}.".format(agent_name)
+            agent_payload = payload.setdefault("agent", {}).setdefault(name, {})
+            prefix = "agent.{0}.".format(name)
             self._record_update(agent_payload, "model", model_ref, diffs, prefix)
             self._record_update(agent_payload, "variant", None, diffs, prefix)
             variant_options = self._get_opencode_variant_options(
@@ -703,24 +703,7 @@ class ConfigManager:
                 change.model,
                 change.strength,
             )
-            if variant_options:
-                options_payload = agent_payload.setdefault("options", {})
-                for option_key, option_value in sorted(variant_options.items()):
-                    self._record_update(
-                        options_payload,
-                        option_key,
-                        copy.deepcopy(option_value),
-                        diffs,
-                        "{0}options.".format(prefix),
-                    )
-            if "reasoningEffort" in agent_payload:
-                self._record_update(
-                    agent_payload,
-                    "reasoningEffort",
-                    variant_options.get("reasoningEffort", change.strength),
-                    diffs,
-                    prefix,
-                )
+            self._sync_opencode_agent_strength_options(agent_payload, variant_options, diffs, prefix)
 
     def _apply_omo_change(
         self,
@@ -730,7 +713,7 @@ class ConfigManager:
         diffs: List[DiffItem],
     ) -> None:
         model_ref = "{0}/{1}".format(change.provider, change.model)
-        _, kind, name = target.id.split(":")
+        _, kind, name = self._parse_target_id(target.id)
         
         if kind == "category":
             group_name = "categories"
@@ -766,18 +749,59 @@ class ConfigManager:
     def _sanitize_opencode_agent_node(self, node: Dict[str, Any], payload: Dict[str, Any]) -> None:
         legacy_variant = node.pop("variant", None)
         provider, model = self._split_model_ref(node.get("model"))
-        if not legacy_variant or not provider or not model:
+        if not legacy_variant:
             return
 
-        variant_options = self._get_opencode_variant_options(payload, provider, model, legacy_variant)
-        if not variant_options:
-            return
+        variant_options = self._get_opencode_variant_options(payload, provider, model, legacy_variant) if provider and model else {}
+        self._sync_opencode_agent_strength_options(
+            node,
+            variant_options,
+            [],
+            "",
+            update_root_reasoning_effort=False,
+        )
 
-        options_payload = node.setdefault("options", {})
-        for option_key, option_value in variant_options.items():
-            options_payload[option_key] = copy.deepcopy(option_value)
-        if "reasoningEffort" in node and "reasoningEffort" in variant_options:
-            node["reasoningEffort"] = variant_options["reasoningEffort"]
+    def _sync_opencode_agent_strength_options(
+        self,
+        agent_payload: Dict[str, Any],
+        variant_options: Dict[str, Any],
+        diffs: List[DiffItem],
+        prefix: str,
+        update_root_reasoning_effort: bool = True,
+    ) -> None:
+        options_payload = agent_payload.get("options")
+        if variant_options and not isinstance(options_payload, dict):
+            options_payload = {}
+            agent_payload["options"] = options_payload
+
+        if isinstance(options_payload, dict):
+            for option_key, option_value in sorted(variant_options.items()):
+                self._record_update(
+                    options_payload,
+                    option_key,
+                    copy.deepcopy(option_value),
+                    diffs,
+                    "{0}options.".format(prefix),
+                )
+            for option_key in sorted(OPENCODE_STRENGTH_OPTION_KEYS - set(variant_options.keys())):
+                self._record_update(
+                    options_payload,
+                    option_key,
+                    None,
+                    diffs,
+                    "{0}options.".format(prefix),
+                )
+            if not options_payload:
+                self._record_update(agent_payload, "options", None, diffs, prefix)
+
+        if update_root_reasoning_effort or "reasoningEffort" in agent_payload:
+            self._record_update(
+                agent_payload,
+                "reasoningEffort",
+                copy.deepcopy(variant_options["reasoningEffort"]) if "reasoningEffort" in variant_options else None,
+                diffs,
+                prefix,
+            )
 
     def _get_opencode_agent_strength(self, node: Dict[str, Any]) -> Optional[str]:
         options = node.get("options", {})
@@ -820,6 +844,12 @@ class ConfigManager:
             change if isinstance(change, DraftChange) else DraftChange.model_validate(change)
             for change in changes
         ]
+
+    def _parse_target_id(self, target_id: str) -> Tuple[str, str, str]:
+        segments = target_id.split(":", 2)
+        if len(segments) != 3 or not all(segments):
+            raise ValueError("Invalid target id: {0}".format(target_id))
+        return segments[0], segments[1], segments[2]
 
     def _split_model_ref(self, value: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
         if not value:

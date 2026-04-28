@@ -137,6 +137,195 @@ def test_opencode_agent_strength_is_written_as_options_not_variant(sample_worksp
     assert planner["reasoningEffort"] == "low"
 
 
+def test_opencode_agent_target_names_may_contain_colons(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["agent"]["pua:cto-p10"] = {
+        "model": "OpenAI/gpt-5.4",
+        "mode": "primary",
+        "options": {"reasoningEffort": "low"},
+    }
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+
+    result = manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:agent:pua:cto-p10",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "high",
+            }
+        ]
+    )
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    assert result.applied_files == [sample_workspace["opencode_path"].as_posix()]
+    assert updated_payload["agent"]["pua:cto-p10"]["options"]["reasoningEffort"] == "high"
+    assert "cto-p10" not in updated_payload["agent"]
+
+
+def test_opencode_agent_model_without_variants_removes_strength_options(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["provider"]["OpenAI"]["models"]["plain-model"] = {"name": "Plain Model"}
+    opencode_payload["agent"]["planner"]["options"] = {
+        "reasoningEffort": "high",
+        "reasoningSummary": "auto",
+        "textVerbosity": "low",
+        "customOption": "keep-me",
+    }
+    opencode_payload["agent"]["planner"]["variant"] = "high"
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+
+    preview = manager.preview_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "plain-model",
+                "strength": None,
+            }
+        ]
+    )
+
+    assert any(item.path == "agent.planner.options.reasoningEffort" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.reasoningSummary" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.textVerbosity" and item.new_value is None for file in preview.files for item in file.items)
+
+    manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "plain-model",
+                "strength": None,
+            }
+        ]
+    )
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = updated_payload["agent"]["planner"]
+    assert planner["model"] == "OpenAI/plain-model"
+    assert "variant" not in planner
+    assert "reasoningEffort" not in planner
+    assert planner["options"] == {"customOption": "keep-me"}
+
+
+def test_opencode_agent_variant_switch_removes_stale_strength_options(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["provider"]["OpenAI"]["models"]["gpt-5.4"]["variants"]["rich"] = {
+        "reasoningEffort": "high",
+        "reasoningSummary": "auto",
+        "textVerbosity": "low",
+    }
+    opencode_payload["provider"]["OpenAI"]["models"]["gpt-5.4"]["variants"]["simple"] = {
+        "reasoningEffort": "low",
+    }
+    opencode_payload["agent"]["planner"]["variant"] = "rich"
+    opencode_payload["agent"]["planner"]["reasoningEffort"] = "high"
+    opencode_payload["agent"]["planner"]["options"] = {
+        "reasoningEffort": "high",
+        "reasoningSummary": "auto",
+        "textVerbosity": "low",
+        "customOption": "keep-me",
+    }
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+
+    preview = manager.preview_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "simple",
+            }
+        ]
+    )
+
+    assert any(item.path == "agent.planner.options.reasoningSummary" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.textVerbosity" and item.new_value is None for file in preview.files for item in file.items)
+
+    manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "simple",
+            }
+        ]
+    )
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = updated_payload["agent"]["planner"]
+    assert planner["reasoningEffort"] == "low"
+    assert planner["options"] == {
+        "reasoningEffort": "low",
+        "customOption": "keep-me",
+    }
+
+
+def test_opencode_agent_variant_without_reasoning_effort_removes_root_strength(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["provider"]["OpenAI"]["models"]["gpt-5.4"]["variants"]["quiet"] = {
+        "textVerbosity": "low",
+    }
+    opencode_payload["agent"]["planner"]["reasoningEffort"] = "high"
+    opencode_payload["agent"]["planner"]["options"] = {
+        "reasoningEffort": "high",
+        "customOption": "keep-me",
+    }
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+
+    preview = manager.preview_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "quiet",
+            }
+        ]
+    )
+
+    assert any(item.path == "agent.planner.reasoningEffort" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.reasoningEffort" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.textVerbosity" and item.new_value == "low" for file in preview.files for item in file.items)
+
+    manager.apply_changes(
+        [
+            {
+                "targetId": "opencode:agent:planner",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "quiet",
+            }
+        ]
+    )
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = updated_payload["agent"]["planner"]
+    assert "reasoningEffort" not in planner
+    assert planner["options"] == {
+        "textVerbosity": "low",
+        "customOption": "keep-me",
+    }
+
+
 def test_overview_reads_opencode_agent_strength_from_options(sample_workspace: dict[str, Path]) -> None:
     opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
     planner = opencode_payload["agent"]["planner"]
@@ -335,6 +524,40 @@ def test_omo_category_with_agent_name_writes_category_not_agent(sample_workspace
     assert not any(item.path == "agents.explore.variant" for file in preview.files for item in file.items)
 
 
+def test_omo_target_names_may_contain_colons(sample_workspace: dict[str, Path]) -> None:
+    omo_payload = json.loads(sample_workspace["omo_path"].read_text(encoding="utf-8"))
+    omo_payload["agents"]["agent:withcolon"] = {
+        "model": "OpenAI/gpt-5.4",
+        "variant": "medium",
+    }
+    omo_payload["categories"]["cat:withcolon"] = {
+        "model": "OpenAI/gpt-5.4",
+        "variant": "medium",
+    }
+    sample_workspace["omo_path"].write_text(json.dumps(omo_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manager = make_manager(sample_workspace)
+
+    preview = manager.preview_changes(
+        [
+            {
+                "targetId": "omo:agent:agent:withcolon",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "xhigh",
+            },
+            {
+                "targetId": "omo:category:cat:withcolon",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "xhigh",
+            },
+        ]
+    )
+
+    assert any(item.path == "agents.agent:withcolon.variant" for file in preview.files for item in file.items)
+    assert any(item.path == "categories.cat:withcolon.variant" for file in preview.files for item in file.items)
+
+
 def test_split_provider_apply_writes_only_omo_opencode(split_workspace: dict[str, Path]) -> None:
     manager = make_manager(split_workspace)
     oc_before = split_workspace["opencode_path"].read_text(encoding="utf-8")
@@ -406,3 +629,81 @@ def test_split_agent_apply_writes_only_omo_opencode(split_workspace: dict[str, P
     assert updated_omo_opencode_payload["agent"]["OmoTabOnly"]["description"] == "Updated OMO tab"
     assert "variant" not in updated_omo_opencode_payload["agent"]["OmoTabOnly"]
     assert updated_omo_opencode_payload["agent"]["OmoTabOnly"]["options"]["reasoningEffort"] == "high"
+
+
+def test_agent_settings_apply_removes_stale_opencode_strength_options(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["provider"]["OpenAI"]["models"]["gpt-5.4"]["variants"]["simple"] = {
+        "reasoningEffort": "low",
+    }
+    opencode_payload["agent"]["planner"] = {
+        "model": "OpenAI/gpt-5.4",
+        "variant": "simple",
+        "mode": "primary",
+        "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+            "textVerbosity": "low",
+            "customOption": "keep-me",
+        },
+    }
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+    agents = manager.get_agent_settings().agents
+
+    preview = manager.preview_agent_settings(agents)
+
+    assert any(item.path == "agent.planner.options.reasoningEffort" and item.new_value == "low" for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.reasoningSummary" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.textVerbosity" and item.new_value is None for file in preview.files for item in file.items)
+
+    manager.apply_agent_settings(agents)
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = updated_payload["agent"]["planner"]
+    assert "variant" not in planner
+    assert planner["options"] == {
+        "reasoningEffort": "low",
+        "customOption": "keep-me",
+    }
+
+
+def test_agent_settings_apply_removes_strength_options_when_legacy_variant_has_no_options(sample_workspace: dict[str, Path]) -> None:
+    opencode_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    opencode_payload["provider"]["OpenAI"]["models"]["plain-model"] = {"name": "Plain Model"}
+    opencode_payload["agent"]["planner"] = {
+        "model": "OpenAI/plain-model",
+        "variant": "missing",
+        "mode": "primary",
+        "reasoningEffort": "high",
+        "options": {
+            "reasoningEffort": "high",
+            "reasoningSummary": "auto",
+            "textVerbosity": "low",
+            "customOption": "keep-me",
+        },
+    }
+    sample_workspace["opencode_path"].write_text(
+        json.dumps(opencode_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    manager = make_manager(sample_workspace)
+    agents = manager.get_agent_settings().agents
+
+    preview = manager.preview_agent_settings(agents)
+
+    assert any(item.path == "agent.planner.reasoningEffort" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.reasoningEffort" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.reasoningSummary" and item.new_value is None for file in preview.files for item in file.items)
+    assert any(item.path == "agent.planner.options.textVerbosity" and item.new_value is None for file in preview.files for item in file.items)
+
+    manager.apply_agent_settings(agents)
+
+    updated_payload = json.loads(sample_workspace["opencode_path"].read_text(encoding="utf-8"))
+    planner = updated_payload["agent"]["planner"]
+    assert "variant" not in planner
+    assert "reasoningEffort" not in planner
+    assert planner["options"] == {"customOption": "keep-me"}

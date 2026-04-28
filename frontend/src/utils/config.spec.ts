@@ -9,6 +9,7 @@ import {
   getStrengthOptions,
   getValidProviderIdForSource,
   mergeDraft,
+  shouldShowStrengthControl,
 } from '@/utils/config'
 
 const providers: ProviderInfo[] = [
@@ -130,6 +131,51 @@ describe('config utils', () => {
       model: 'claude-sonnet-4',
       strength: 'low',
     })
+  })
+
+  it('clears strength when selected model has no strength options', () => {
+    const draft: TargetDraft = {
+      provider: 'OpenAI',
+      model: 'gpt-5.4',
+      strength: 'high',
+    }
+    const providersWithPlainModel: ProviderInfo[] = [
+      {
+        id: 'OpenAI',
+        label: 'OpenAI',
+        models: [
+          {
+            id: 'plain-model',
+            label: 'Plain Model',
+            strengthOptions: [],
+          },
+        ],
+      },
+    ]
+
+    expect(mergeDraft(draft, providersWithPlainModel, { model: 'plain-model' })).toEqual({
+      provider: 'OpenAI',
+      model: 'plain-model',
+      strength: null,
+    })
+  })
+
+  it('shows strength control for agents but not default model targets', () => {
+    expect(
+      shouldShowStrengthControl(
+        targets[0],
+        providers,
+        { provider: 'OpenAI', model: 'gpt-5.4', strength: 'high' },
+      ),
+    ).toBe(true)
+
+    expect(
+      shouldShowStrengthControl(
+        targets[1],
+        providers,
+        { provider: 'OpenAI', model: 'gpt-5.4', strength: 'medium' },
+      ),
+    ).toBe(false)
   })
 
   it('builds payload only for changed rows', () => {

@@ -28,7 +28,8 @@ export function getTargetKindLabel(target: TargetInfo): string {
     return target.kind
   }
 
-  const [, rawKind, rawName] = target.id.split(':')
+  const [, rawKind, ...nameParts] = target.id.split(':')
+  const rawName = nameParts.join(':')
   const groupName = rawKind === 'category' ? 'categories' : 'agents'
   return `${rawKind} · ${groupName}.${rawName}`
 }

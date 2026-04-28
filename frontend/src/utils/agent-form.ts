@@ -55,6 +55,9 @@ export function isHiddenAgent(agent: AgentDraft) {
   if (agent.payload?.mode === 'subagent') {
     return true
   }
+  if (agent.payload?.mode === 'primary') {
+    return false
+  }
   return agent.source === 'opencode' && HIDDEN_OPENCODE_AGENTS.includes(agent.id)
 }
 
@@ -82,4 +85,8 @@ export function hasAgentIdInSource(
       agent.id === id &&
       agent.clientKey !== exceptClientKey,
   )
+}
+
+export function isValidAgentId(id: string) {
+  return /^[a-zA-Z0-9_:\-]+$/.test(id)
 }

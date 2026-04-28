@@ -11,6 +11,7 @@ import {
   getDisplayAgents,
   getHiddenAgents,
   hasAgentIdInSource,
+  isValidAgentId,
   shouldShowAgentSourceTabs,
 } from '@/utils/agent-form'
 
@@ -107,10 +108,7 @@ function handleConfirmAdd() {
     }
     const target = agents.value.find(a => a.clientKey === addSelectedHidden.value && a.source === activeSource.value)
     if (target) {
-      // 如果是 subagent，直接改为 primary 以便显示
-      if (target.payload?.mode === 'subagent') {
-        target.payload.mode = 'primary'
-      }
+      target.payload = { ...(target.payload ?? {}), mode: 'primary' }
       activeAgentKey.value = target.clientKey
       addDialogVisible.value = false
       return
@@ -140,8 +138,8 @@ function handleConfirmAdd() {
       ElMessage.warning('该 Agent ID 已存在')
       return
     }
-    if (!/^[a-zA-Z0-9_\-]+$/.test(newId)) {
-      ElMessage.warning('Agent ID 只能包含字母、数字、下划线和连字符')
+    if (!isValidAgentId(newId)) {
+      ElMessage.warning('Agent ID 只能包含字母、数字、冒号、下划线和连字符')
       return
     }
     agents.value.push(newRecord)
@@ -316,13 +314,13 @@ onMounted(async () => {
             </el-select>
           </el-form-item>
           <el-form-item label="新的 Agent ID">
-            <el-input v-model="addNewId" placeholder="输入只包含字母、数字、连字符的 ID" />
+            <el-input v-model="addNewId" placeholder="输入只包含字母、数字、冒号、连字符的 ID" />
           </el-form-item>
         </template>
 
         <template v-else>
           <el-form-item label="全新的 Agent ID">
-            <el-input v-model="addNewId" placeholder="输入只包含字母、数字、连字符的 ID" />
+            <el-input v-model="addNewId" placeholder="输入只包含字母、数字、冒号、连字符的 ID" />
           </el-form-item>
         </template>
       </el-form>

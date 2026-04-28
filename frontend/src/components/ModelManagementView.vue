@@ -10,6 +10,7 @@ import {
   getModelOptions,
   getStrengthOptions,
   getValidProviderIdForSource,
+  shouldShowStrengthControl,
 } from '@/utils/config'
 import { getDefaultSourceTab, getVisibleTargetsBySource, type SourceTab } from '@/utils/source-tabs'
 import { getTargetKindLabel, groupTargetsByTab } from '@/utils/target-groups'
@@ -203,7 +204,7 @@ onMounted(async () => {
                           />
                         </el-select>
                       </label>
-                      <label v-if="getStrengthOptions(targetProviders(target), drafts[target.id]?.provider ?? null, drafts[target.id]?.model ?? null).length > 0">
+                      <label v-if="shouldShowStrengthControl(target, targetProviders(target), drafts[target.id])">
                         <span>Strength</span>
                         <el-select :model-value="drafts[target.id]?.strength" @update:model-value="(value: string) => store.updateDraft(target.id, { strength: value })">
                           <el-option
@@ -249,7 +250,7 @@ onMounted(async () => {
                     />
                   </el-select>
                 </label>
-                <label v-if="getStrengthOptions(targetProviders(target), drafts[target.id]?.provider ?? null, drafts[target.id]?.model ?? null).length > 0">
+                <label v-if="shouldShowStrengthControl(target, targetProviders(target), drafts[target.id])">
                   <span>Strength</span>
                   <el-select :model-value="drafts[target.id]?.strength" @update:model-value="(value: string) => store.updateDraft(target.id, { strength: value })">
                     <el-option

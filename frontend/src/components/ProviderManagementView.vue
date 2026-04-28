@@ -53,7 +53,7 @@ const sourceLabels = {
 }
 
 function syncActiveModelTab() {
-  activeModelTab.value = selectedProvider.value?.models[0]?.id ?? null
+  activeModelTab.value = selectedProvider.value?.models[0]?.clientKey ?? null
 }
 
 function handleSelectProvider(index: number) {
@@ -71,11 +71,11 @@ async function handleReload() {
   syncActiveModelTab()
 }
 
-function handleAddModel(providerId: string) {
-  providerStore.addModel(providerId)
+function handleAddModel(providerKey: string) {
+  providerStore.addModel(providerKey)
   const models = selectedProvider.value?.models
   if (models?.length) {
-    activeModelTab.value = models[models.length - 1].id
+    activeModelTab.value = models[models.length - 1].clientKey
   }
 }
 
@@ -84,7 +84,7 @@ onMounted(async () => {
     await providerStore.load()
   }
   if (selectedProvider.value?.models.length) {
-    activeModelTab.value = selectedProvider.value.models[0].id
+    activeModelTab.value = selectedProvider.value.models[0].clientKey
   }
 })
 </script>
@@ -133,7 +133,7 @@ onMounted(async () => {
           <div class="provider-list-body">
             <button
               v-for="(provider, index) in drafts"
-              :key="index"
+              :key="provider.clientKey"
               type="button"
               class="provider-list-item"
               :class="{ active: selectedProviderIndex === index }"
@@ -149,8 +149,8 @@ onMounted(async () => {
           <div class="section-head">
             <h3>配置：{{ selectedProvider.id || '新项' }}</h3>
             <div class="inline-actions">
-              <el-button @click="handleAddModel(selectedProvider.id)">新增 Model</el-button>
-              <el-popconfirm title="确定删除这个 Provider 吗？" @confirm="providerStore.removeProvider(selectedProvider.id)">
+              <el-button @click="handleAddModel(selectedProvider.clientKey)">新增 Model</el-button>
+              <el-popconfirm title="确定删除这个 Provider 吗？" @confirm="providerStore.removeProvider(selectedProvider.clientKey)">
                 <template #reference>
                   <el-button type="danger" plain>删除 Provider</el-button>
                 </template>
@@ -178,13 +178,13 @@ onMounted(async () => {
           </div>
 
           <el-tabs v-model="activeModelTab" type="border-card" class="model-stack" v-if="selectedProvider.models.length > 0">
-            <el-tab-pane v-for="model in selectedProvider.models" :key="model.id" :label="model.id || '新 Model'" :name="model.id">
+            <el-tab-pane v-for="model in selectedProvider.models" :key="model.clientKey" :label="model.id || '新 Model'" :name="model.clientKey">
               <div class="model-inner-editor">
                 <div class="section-head mini">
                   <h3>Model 详情</h3>
                   <div class="inline-actions">
-                    <el-button size="small" @click="providerStore.addVariant(selectedProvider.id, model.id)">新增 Variant</el-button>
-                    <el-popconfirm title="确定删除这个 Model 吗？" @confirm="providerStore.removeModel(selectedProvider.id, model.id)">
+                    <el-button size="small" @click="providerStore.addVariant(selectedProvider.clientKey, model.clientKey)">新增 Variant</el-button>
+                    <el-popconfirm title="确定删除这个 Model 吗？" @confirm="providerStore.removeModel(selectedProvider.clientKey, model.clientKey)">
                       <template #reference>
                         <el-button type="danger" size="small" plain>删除 Model</el-button>
                       </template>
@@ -207,10 +207,10 @@ onMounted(async () => {
                   <div class="section-head mini">
                     <h3>Variants ({{ model.variants.length }})</h3>
                   </div>
-                  <div v-for="variant in model.variants" :key="variant.id" class="variant-row-tight">
+                  <div v-for="variant in model.variants" :key="variant.clientKey" class="variant-row-tight">
                     <el-input v-model="variant.id" placeholder="ID" style="width: 120px" />
                     <el-input v-model="variant.valueText" placeholder="Config (JSON)" />
-                    <el-popconfirm title="删除变体？" @confirm="providerStore.removeVariant(selectedProvider.id, model.id, variant.id)">
+                    <el-popconfirm title="删除变体？" @confirm="providerStore.removeVariant(selectedProvider.clientKey, model.clientKey, variant.clientKey)">
                       <template #reference>
                         <el-button type="danger" size="small" plain>删除</el-button>
                       </template>

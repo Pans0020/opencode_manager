@@ -31,6 +31,17 @@ export function getBatchProviderTargetIds(targets: TargetInfo[], source: ConfigS
     .map((target) => target.id)
 }
 
+export function shouldShowStrengthControl(
+  target: TargetInfo,
+  providers: ProviderInfo[],
+  draft: TargetDraft | undefined,
+) {
+  if (target.kind === 'default') {
+    return false
+  }
+  return getStrengthOptions(providers, draft?.provider ?? null, draft?.model ?? null).length > 0
+}
+
 export function getValidProviderIdForSource(providerId: string | null, providers: ProviderInfo[]) {
   if (!providerId) {
     return null

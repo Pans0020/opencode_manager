@@ -23,6 +23,7 @@ export const useProviderStore = defineStore('providers', () => {
   const selectedSource = ref<ConfigSource>('opencode')
   const availableSources = ref<ConfigSource[]>(['opencode'])
   const configPath = ref<string | null>(null)
+  const nextDraftId = ref(1)
 
   const selectedProvider = computed(
     () => drafts.value[selectedProviderIndex.value] ?? drafts.value[0] ?? null,
@@ -47,13 +48,19 @@ export const useProviderStore = defineStore('providers', () => {
     }
   }
 
-  function selectProvider(providerId: string) {
-    const nextIndex = drafts.value.findIndex((provider) => provider.id === providerId)
+  function selectProvider(providerKey: string) {
+    const nextIndex = drafts.value.findIndex((provider) => provider.clientKey === providerKey)
     selectedProviderIndex.value = nextIndex >= 0 ? nextIndex : 0
   }
 
   function selectProviderIndex(index: number) {
     selectedProviderIndex.value = index >= 0 && index < drafts.value.length ? index : 0
+  }
+
+  function createDraftKey(kind: 'provider' | 'model' | 'variant') {
+    const key = `${kind}:new:${nextDraftId.value}`
+    nextDraftId.value += 1
+    return key
   }
 
   async function selectSource(source: ConfigSource) {
@@ -63,14 +70,15 @@ export const useProviderStore = defineStore('providers', () => {
 
   function addProvider() {
     const provider = createEmptyProviderDraft()
+    provider.clientKey = createDraftKey('provider')
     provider.id = `new-provider-${drafts.value.length + 1}`
     drafts.value.push(provider)
     selectedProviderIndex.value = drafts.value.length - 1
   }
 
-  function removeProvider(providerId: string) {
-    const removedIndex = drafts.value.findIndex((provider) => provider.id === providerId)
-    drafts.value = drafts.value.filter((provider) => provider.id !== providerId)
+  function removeProvider(providerKey: string) {
+    const removedIndex = drafts.value.findIndex((provider) => provider.clientKey === providerKey)
+    drafts.value = drafts.value.filter((provider) => provider.clientKey !== providerKey)
     if (drafts.value.length === 0) {
       selectedProviderIndex.value = 0
       return
@@ -81,36 +89,38 @@ export const useProviderStore = defineStore('providers', () => {
     )
   }
 
-  function addModel(providerId: string) {
-    const provider = drafts.value.find((item) => item.id === providerId)
+  function addModel(providerKey: string) {
+    const provider = drafts.value.find((item) => item.clientKey === providerKey)
     if (!provider) return
     const model = createEmptyModelDraft()
+    model.clientKey = createDraftKey('model')
     model.id = `new-model-${provider.models.length + 1}`
     provider.models.push(model)
   }
 
-  function removeModel(providerId: string, modelId: string) {
-    const provider = drafts.value.find((item) => item.id === providerId)
+  function removeModel(providerKey: string, modelKey: string) {
+    const provider = drafts.value.find((item) => item.clientKey === providerKey)
     if (!provider) return
-    provider.models = provider.models.filter((model) => model.id !== modelId)
+    provider.models = provider.models.filter((model) => model.clientKey !== modelKey)
   }
 
-  function addVariant(providerId: string, modelId: string) {
+  function addVariant(providerKey: string, modelKey: string) {
     const model = drafts.value
-      .find((item) => item.id === providerId)
-      ?.models.find((item) => item.id === modelId)
+      .find((item) => item.clientKey === providerKey)
+      ?.models.find((item) => item.clientKey === modelKey)
     if (!model) return
     const variant = createEmptyVariantDraft()
+    variant.clientKey = createDraftKey('variant')
     variant.id = `variant-${model.variants.length + 1}`
     model.variants.push(variant)
   }
 
-  function removeVariant(providerId: string, modelId: string, variantId: string) {
+  function removeVariant(providerKey: string, modelKey: string, variantKey: string) {
     const model = drafts.value
-      .find((item) => item.id === providerId)
-      ?.models.find((item) => item.id === modelId)
+      .find((item) => item.clientKey === providerKey)
+      ?.models.find((item) => item.clientKey === modelKey)
     if (!model) return
-    model.variants = model.variants.filter((variant) => variant.id !== variantId)
+    model.variants = model.variants.filter((variant) => variant.clientKey !== variantKey)
   }
 
   async function previewDrafts() {

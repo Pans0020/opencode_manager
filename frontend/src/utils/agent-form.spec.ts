@@ -5,6 +5,8 @@ import {
   createEmptyAgentDraft,
   createAgentDrafts,
   hasAgentIdInSource,
+  isHiddenAgent,
+  isValidAgentId,
   serializeAgentDrafts,
   shouldShowAgentSourceTabs,
 } from '@/utils/agent-form'
@@ -66,5 +68,26 @@ describe('agent form utilities', () => {
   it('only shows source tabs when multiple sources are available', () => {
     expect(shouldShowAgentSourceTabs(['opencode'])).toBe(false)
     expect(shouldShowAgentSourceTabs(['opencode', 'omo'])).toBe(true)
+  })
+
+  it('shows restored built-in opencode agents when mode is primary', () => {
+    expect(isHiddenAgent({
+      ...sourceRecords[0],
+      id: 'build',
+      payload: { mode: 'primary' },
+      clientKey: 'opencode:build:0',
+    })).toBe(false)
+    expect(isHiddenAgent({
+      ...sourceRecords[0],
+      id: 'build',
+      payload: { mode: 'subagent' },
+      clientKey: 'opencode:build:0',
+    })).toBe(true)
+  })
+
+  it('accepts namespaced agent ids with colons', () => {
+    expect(isValidAgentId('pua:cto-p10')).toBe(true)
+    expect(isValidAgentId('superpowers:code-reviewer')).toBe(true)
+    expect(isValidAgentId('bad id')).toBe(false)
   })
 })

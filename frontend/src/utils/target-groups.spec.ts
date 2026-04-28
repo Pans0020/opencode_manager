@@ -77,4 +77,32 @@ describe('getTargetKindLabel', () => {
       }),
     ).toBe('category · categories.explore')
   })
+
+  it('keeps colons in OMO target names', () => {
+    expect(
+      getTargetKindLabel({
+        id: 'omo:subagent:agent:withcolon',
+        source: 'omo',
+        kind: 'subagent',
+        name: 'agent:withcolon',
+        currentProvider: 'OpenAI',
+        currentModel: 'gpt-5.5',
+        currentStrength: 'xhigh',
+        availableProviders: ['OpenAI'],
+      }),
+    ).toBe('subagent · agents.agent:withcolon')
+
+    expect(
+      getTargetKindLabel({
+        id: 'omo:category:cat:withcolon',
+        source: 'omo',
+        kind: 'category',
+        name: 'cat:withcolon',
+        currentProvider: 'OpenAI',
+        currentModel: 'gpt-5.5',
+        currentStrength: 'medium',
+        availableProviders: ['OpenAI'],
+      }),
+    ).toBe('category · categories.cat:withcolon')
+  })
 })
