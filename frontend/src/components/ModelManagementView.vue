@@ -12,7 +12,7 @@ import {
   getValidProviderIdForSource,
 } from '@/utils/config'
 import { getDefaultSourceTab, getVisibleTargetsBySource, type SourceTab } from '@/utils/source-tabs'
-import { groupTargetsByTab } from '@/utils/target-groups'
+import { getTargetKindLabel, groupTargetsByTab } from '@/utils/target-groups'
 
 const store = useConfigStore()
 const {
@@ -75,10 +75,6 @@ const previewVisible = computed({
     }
   },
 })
-
-function getKindLabel(kind: string) {
-  return kind === 'category' ? 'subagent' : kind
-}
 
 function switchSource(next: SourceTab) {
   activeSource.value = next
@@ -185,7 +181,7 @@ onMounted(async () => {
                     <div class="target-header">
                       <div>
                         <h4>{{ target.name }}</h4>
-                        <p>{{ getKindLabel(target.kind) }}</p>
+                        <p>{{ getTargetKindLabel(target) }}</p>
                       </div>
                     </div>
 
@@ -232,7 +228,7 @@ onMounted(async () => {
               <div class="target-header">
                 <div>
                   <h4>{{ target.name }}</h4>
-                  <p>{{ getKindLabel(target.kind) }}</p>
+                  <p>{{ getTargetKindLabel(target) }}</p>
                 </div>
               </div>
               <div class="field-grid">

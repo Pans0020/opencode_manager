@@ -303,6 +303,38 @@ def test_split_omo_model_apply_writes_only_split_oh_my_openagent(split_workspace
     assert omo_payload["agents"]["atlas"]["variant"] == "deep"
 
 
+def test_omo_category_with_agent_name_writes_category_not_agent(sample_workspace: dict[str, Path]) -> None:
+    omo_payload = json.loads(sample_workspace["omo_path"].read_text(encoding="utf-8"))
+    omo_payload["agents"]["explore"]["model"] = "OpenAI/gpt-5.4"
+    omo_payload["agents"]["explore"]["variant"] = "xhigh"
+    omo_payload["categories"]["explore"] = {
+        "model": "OpenAI/gpt-5.4",
+        "variant": "medium",
+    }
+    sample_workspace["omo_path"].write_text(json.dumps(omo_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    manager = make_manager(sample_workspace)
+
+    preview = manager.preview_changes(
+        [
+            {
+                "targetId": "omo:category:explore",
+                "provider": "OpenAI",
+                "model": "gpt-5.4",
+                "strength": "xhigh",
+            }
+        ]
+    )
+
+    assert any(
+        item.path == "categories.explore.variant"
+        and item.old_value == "medium"
+        and item.new_value == "xhigh"
+        for file in preview.files
+        for item in file.items
+    )
+    assert not any(item.path == "agents.explore.variant" for file in preview.files for item in file.items)
+
+
 def test_split_provider_apply_writes_only_omo_opencode(split_workspace: dict[str, Path]) -> None:
     manager = make_manager(split_workspace)
     oc_before = split_workspace["opencode_path"].read_text(encoding="utf-8")

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { TargetInfo } from '@/types'
-import { splitTargetsByKind } from '@/utils/target-groups'
+import { getTargetKindLabel, splitTargetsByKind } from '@/utils/target-groups'
 
 const targets: TargetInfo[] = [
   {
@@ -46,5 +46,35 @@ describe('splitTargetsByKind', () => {
       'omo:subagent:librarian',
     ])
     expect(groups.others).toEqual([])
+  })
+})
+
+describe('getTargetKindLabel', () => {
+  it('disambiguates OMO category targets even when displayed as subagents', () => {
+    expect(
+      getTargetKindLabel({
+        id: 'omo:subagent:explore',
+        source: 'omo',
+        kind: 'subagent',
+        name: 'explore',
+        currentProvider: 'OpenAI',
+        currentModel: 'gpt-5.5',
+        currentStrength: 'xhigh',
+        availableProviders: ['OpenAI'],
+      }),
+    ).toBe('subagent · agents.explore')
+
+    expect(
+      getTargetKindLabel({
+        id: 'omo:category:explore',
+        source: 'omo',
+        kind: 'subagent',
+        name: 'explore',
+        currentProvider: 'OpenAI',
+        currentModel: 'gpt-5.5',
+        currentStrength: 'medium',
+        availableProviders: ['OpenAI'],
+      }),
+    ).toBe('category · categories.explore')
   })
 })

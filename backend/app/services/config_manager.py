@@ -732,11 +732,10 @@ class ConfigManager:
         model_ref = "{0}/{1}".format(change.provider, change.model)
         _, kind, name = target.id.split(":")
         
-        if kind in {"category", "subagent"}:
-            if name in payload.get("agents", {}) or name in OMO_SUBAGENT_AGENT_NAMES:
-                group_name = "agents"
-            else:
-                group_name = "categories"
+        if kind == "category":
+            group_name = "categories"
+        elif kind in {"agent", "subagent"}:
+            group_name = "agents"
         else:
             group_name = "{0}s".format(kind)
             

@@ -23,6 +23,16 @@ export function splitTargetsByKind(targets: TargetInfo[]): TargetGroups {
   )
 }
 
+export function getTargetKindLabel(target: TargetInfo): string {
+  if (target.source !== 'omo') {
+    return target.kind
+  }
+
+  const [, rawKind, rawName] = target.id.split(':')
+  const groupName = rawKind === 'category' ? 'categories' : 'agents'
+  return `${rawKind} · ${groupName}.${rawName}`
+}
+
 export function groupTargetsByTab(targets: TargetInfo[], customTabs: string[]): Record<string, TargetInfo[]> {
   const groups: Record<string, TargetInfo[]> = {
     Agents: [],
